@@ -56,39 +56,44 @@ def plot_test_results(data, data_split, sparsity_level, areas, charts_path):
     sns.barplot(x=algorithms, y=accuracies, palette='viridis')
 
     plt.title(f' Test Accuracy -- Sparsity Level {sparsity_level} -- #Areas {areas} -- Data Split {data_split}')
-    plt.savefig(f'{charts_path}/sparsity_level-{sparsity_level}_areas-{areas}_partitioning-{data_split}.pdf')
+    plt.savefig(f'{charts_path}/sparsity_level-{sparsity_level}_areas-{areas}.pdf')
     plt.close()
 
 if __name__ == '__main__':
 
-    sparsity_levels = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99]
-    data_splits = ['Hard']
+    sparsity_levels = [0.0, 0.2, 0.4, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99]
+    data_splits = ['Hard', 'Dirichlet']
+    datasets = ['EMNIST', 'CIFAR100']
     areas = [3, 5, 9]
-    baselines = ['fedavg', 'fedprox', 'scaffold', 'ifca']
+    baselines = ['fedavg', 'fedprox', 'scaffold']#, 'ifca']
 
     charts_path = 'charts'
 
     for data_split in data_splits:
-        for sl in sparsity_levels:
-            for area in areas:
+        for dataset in datasets:
+            for sl in sparsity_levels:
+                for area in areas:
+                    train_data = {}
+                    test_data = {}
 
-                train_data = {}
-                test_data = {}
+                    df_train = pd.read_csv(f'data/sparseful/experiment_seed-0_regions-{area}_sparsity-{sl}_dataset-{dataset}_partitioning-{data_split}.csv')
+                    df_federations_count = pd.read_csv(f'data/sparseful/federations_seed-0_regions-{area}_sparsity-{sl}_dataset-{dataset}_partitioning-{data_split}.csv')
 
-                df_train = pd.read_csv(f'data/sparseful/experiment_seed-0_regions-{area}_sparsity-{sl}.csv')
-                df_federations_count = pd.read_csv(f'data/sparseful/federations_seed-0_regions-{area}_sparsity-{sl}.csv')
+                    if 'EMNIST' in dataset:
+                        th = 40
+                    else:
+                        th = 80
+                    df_test = pd.read_csv(f'data/sparseful/test_seed-0_regions-{area}_sparsity-{sl}_threshold-{th}.0_dataset-{dataset}_partitioning-{data_split}.csv')
+                    test_data['SParSeFuL'] = df_test
+                    train_data['SParSeFuL'] = df_train
 
-                df_test = pd.read_csv(f'data/sparseful/test_seed-0_regions-{area}_sparsity-{sl}_threshold-40.0.csv')
-                test_data['SParSeFuL'] = df_test
-                train_data['SParSeFuL'] = df_train
+                    plot_train_results({'SParSeFuL': df_federations_count}, ['FederationsCount'], data_split, sl, area, f'{charts_path}/{dataset}/{data_split}/train/federationscount')
 
-                plot_train_results({'SParSeFuL': df_federations_count}, ['FederationsCount'], data_split, sl, area, f'{charts_path}/train/federationscount')
+                    for baseline in baselines:
+                        df_train = pd.read_csv(f'data/baselines/seed-0_algorithm-{baseline}_dataset-{dataset}_partitioning-{data_split}_areas-{area}_clients-50_sparsity-{sl}.csv')
+                        df_test = pd.read_csv(f'data/baselines/seed-0_algorithm-{baseline}_dataset-{dataset}_partitioning-{data_split}_areas-{area}_clients-50_sparsity-{sl}-test.csv')
+                        test_data[baseline] = df_test
+                        train_data[baseline] = df_train
 
-                for baseline in baselines:
-                    df_train = pd.read_csv(f'data/baselines/seed-0_algorithm-{baseline}_dataset-EMNIST_partitioning-{data_split}_areas-{area}_clients-50_sparsity-{sl}.csv')
-                    df_test = pd.read_csv(f'data/baselines/seed-0_algorithm-{baseline}_dataset-EMNIST_partitioning-{data_split}_areas-{area}_clients-50_sparsity-{sl}-test.csv')
-                    test_data[baseline] = df_test
-                    train_data[baseline] = df_train
-
-                plot_train_results(train_data, ['TrainingLoss', 'ValidationLoss', 'ValidationAccuracy'], data_split, sl, area, f'{charts_path}/train/allmetrics')
-                plot_test_results(test_data, data_split, sl, area, f'{charts_path}/test/')
+                    plot_train_results(train_data, ['TrainingLoss', 'ValidationLoss', 'ValidationAccuracy'], data_split, sl, area, f'{charts_path}/{dataset}/{data_split}/train/allmetrics')
+                    plot_test_results(test_data, data_split, sl, area, f'{charts_path}/{dataset}/{data_split}/test/')
